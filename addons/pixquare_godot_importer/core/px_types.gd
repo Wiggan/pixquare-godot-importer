@@ -16,6 +16,13 @@ class PxFrame:
 	var opacity_f16: int = 0
 	var z_index: int = 0
 
+class PxTag:
+	var name: String = ""
+	var from_frame: int = 0
+	var to_frame: int = 0
+	var direction: int = 0 # 0=forward, 1=reverse, 2=pingpong
+	var loop_count: int = 0 # 0=infinite
+
 class PxLayer:
 	var id: String = ""
 	var name: String = ""
@@ -40,6 +47,9 @@ class PxDocument:
 	# Optional palette (ARGBColor bytes as stored)
 	var palette: PackedByteArray = PackedByteArray()
 
+	# Tags
+	var tags: Array[PxTag] = []
+
 	func get_root_regular_layer_order() -> Array[String]:
 		var out: Array[String] = []
 		for e in entries:
@@ -54,3 +64,9 @@ class PxDocument:
 			if lay != null:
 				max_frames = max(max_frames, lay.frames.size())
 		return max_frames
+
+	func get_duration_ms_for_frame(layer_id: String, frame_idx: int) -> int:
+		var lay: PxLayer = layers_by_id.get(layer_id, null)
+		if lay != null and frame_idx < lay.frames.size():
+			return lay.frames[frame_idx].duration_ms
+		return 0

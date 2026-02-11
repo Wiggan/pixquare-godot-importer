@@ -1,0 +1,15 @@
+[remap]
+
+importer="fwdab.px.import.spriteframes"
+type="SpriteFrames"
+uid="uid://dcrtmpefmxrae"
+path="res://.godot/imported/magic_ball.px-c8474286a528cd1eb7b1798f4739fafd.tres"
+
+[deps]
+
+source_file="res://addons/pixquare_godot_importer/test_data/magic_ball.px"
+dest_files=["res://.godot/imported/magic_ball.px-c8474286a528cd1eb7b1798f4739fafd.tres"]
+
+[params]
+
+composite_visible_layers=true

@@ -12,8 +12,4 @@ dest_files=["res://.godot/imported/Explosion.px-88f17ba01847cab70cc2505cc8880a7d
 
 [params]
 
-animation_name="default"
-fps=12
-frame_from=0
-frame_count=0
 composite_visible_layers=true

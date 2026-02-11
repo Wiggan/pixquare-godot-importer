@@ -1,15 +1,93 @@
 [gd_scene format=3 uid="uid://dwqwvbe3ougp5"]
 
-[ext_resource type="SpriteFrames" path="res://addons/pixquare_godot_importer/test_data/Explosion.px" id="1_p7cxa"]
-[ext_resource type="Texture2D" path="res://addons/pixquare_godot_importer/test_data/Cloak.px" id="2_0uayc"]
+[ext_resource type="SpriteFrames" uid="uid://0377j7xr0ew5" path="res://addons/pixquare_godot_importer/test_data/Explosion.px" id="1_p7cxa"]
+[ext_resource type="Texture2D" uid="uid://dk5xft2jxm84h" path="res://addons/pixquare_godot_importer/test_data/Cloak.px" id="2_0uayc"]
+[ext_resource type="SpriteFrames" uid="uid://dcrtmpefmxrae" path="res://addons/pixquare_godot_importer/test_data/magic_ball.px" id="2_p7cxa"]
+
+[sub_resource type="Animation" id="Animation_0uayc"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("MagicBall:animation")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [&"Flying"]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("MagicBall:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(-35, -2)]
+}
+
+[sub_resource type="Animation" id="Animation_j02b7"]
+resource_name = "new_animation"
+length = 3.0333333
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("MagicBall:animation")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1.99),
+"transitions": PackedFloat32Array(1, 1),
+"update": 1,
+"values": [&"Flying", &"Explode"]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("MagicBall:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 1.99),
+"transitions": PackedFloat32Array(2.07053, 1),
+"update": 0,
+"values": [Vector2(-35, -2), Vector2(91, -2)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_2om43"]
+_data = {
+&"RESET": SubResource("Animation_0uayc"),
+&"new_animation": SubResource("Animation_j02b7")
+}
 
 [node name="Node2D" type="Node2D" unique_id=1996477979]
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1088513839]
+position = Vector2(-1, -47)
 sprite_frames = ExtResource("1_p7cxa")
 autoplay = "default"
 frame_progress = 0.45033085
 
+[node name="MagicBall" type="AnimatedSprite2D" parent="." unique_id=490750253]
+position = Vector2(-35, -2)
+sprite_frames = ExtResource("2_p7cxa")
+animation = &"Flying"
+autoplay = "Flying"
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="MagicBall" unique_id=2141417195]
+root_node = NodePath("../..")
+libraries/ = SubResource("AnimationLibrary_2om43")
+autoplay = &"new_animation"
+
 [node name="Cloak" type="Sprite2D" parent="." unique_id=1622528758]
-position = Vector2(28, 0)
+position = Vector2(-51, 0)
 texture = ExtResource("2_0uayc")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1310196015]
+zoom = Vector2(3.98, 3.98)

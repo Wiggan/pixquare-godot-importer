@@ -24,31 +24,11 @@ func _get_preset_name(preset_index):
 	
 # Import options for Pixquare SpriteFrames importer.
 #
-# animation_name
-#   Name of the animation created in the SpriteFrames resource.
-#   This is the key used by AnimatedSprite2D.play().
-#
-# fps
-#   Playback speed (frames per second) for the animation.
-#   Stored as SpriteFrames animation speed.
-#
-# frame_from
-#   Zero-based index of the first Pixquare frame to import.
-#   Use this to skip setup frames or split animations from one timeline.
-#
-# frame_count
-#   Number of frames to import.
-#   0 means "import all available frames starting at frame_from".
-#
 # composite_visible_layers
 #   If true, only layers marked as visible in Pixquare are composited.
 #   If false, all regular layers are composited regardless of visibility.
 func _get_import_options(path, preset_index):
 	return [
-		{"name": "animation_name", "default_value": "default"},
-		{"name": "fps", "default_value": 12},
-		{"name": "frame_from", "default_value": 0},
-		{"name": "frame_count", "default_value": 0},
 		{"name": "composite_visible_layers", "default_value": true},
 	]
 

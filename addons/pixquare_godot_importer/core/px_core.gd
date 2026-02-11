@@ -1,4 +1,3 @@
-
 extends RefCounted
 class_name PxCore
 
@@ -65,7 +64,7 @@ const ENTRY_HEADER_BYTES := 16
 const LAYER_HEADER_BYTES := 32
 const FRAME_HEADER_BYTES := 32
 const FRAMECONTENT_HEADER_BYTES := 32
-
+const TAG_HEADER_BYTES := 16
 
 
 static func _read_entry(r: PxReader) -> PxTypes.PxEntry:
@@ -133,6 +132,35 @@ static func _read_frame(r: PxReader) -> PxTypes.PxFrame:
 	fr.z_index = int(z_index)
 	return fr
 
+static func _read_tag(r: PxReader) -> PxTypes.PxTag:
+	var size := r.u32()
+	var id_len := r.u8()
+	var name_len := r.u8()
+	r.skip(TAG_HEADER_BYTES - 4 - 1 - 1)
+
+	var content_start := r.pos()
+
+	var id := r.dumb_string(id_len)
+	var name := r.dumb_string(name_len)
+	var from_frame := r.u16()
+	var to_frame := r.u16()
+	r.skip(1) # ignore selected
+	r.skip(4) # ignore color
+	var direction := r.u8()
+	var loop_count := r.u16()
+
+	var consumed := r.pos() - content_start
+	if consumed < size:
+		r.skip(size - consumed)
+
+	var tag := PxTypes.PxTag.new()
+	tag.name = name
+	tag.from_frame = int(from_frame)
+	tag.to_frame = int(to_frame)
+	tag.direction = int(direction)
+	tag.loop_count = int(loop_count)
+	return tag
+
 static func _read_layer_full(r: PxReader) -> PxTypes.PxLayer:
 	var size := r.u32()
 	var id_len := r.u8()
@@ -156,11 +184,11 @@ static func _read_layer_full(r: PxReader) -> PxTypes.PxLayer:
 
 	var remaining := size - int(r.pos() - content_start)
 	if remaining >= 2 + 1 + 1 + 1 + 1 + 2:
-		r.skip(2)     # opacity f16
+		r.skip(2) # opacity f16
 		visible = r.bool()
-		r.skip(1)     # locked
-		r.skip(1)     # selected
-		r.skip(1)     # alpha-locked
+		r.skip(1) # locked
+		r.skip(1) # selected
+		r.skip(1) # alpha-locked
 		blend = r.u16()
 
 	remaining = size - int(r.pos() - content_start)
@@ -363,6 +391,29 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 	var palette_count := r.array_count()
 	doc.palette = r.bytes(palette_count * 4)
 
+	# [ReferenceLayer] (skip, but keep room for later)
+	var ref_layer_count := r.array_count()
+	for _i in range(ref_layer_count):
+		_skip_model_u32_header(r, 32)
+	
+	# [[Byte]] (PNG data for reference layers, skip)
+	var ref_layer_png_count := r.array_count()
+	for _i in range(ref_layer_png_count):
+		_skip_model_u32_header(r, 32)
+
+	# [SymmetryLine] (skip, but keep room for later)
+	var symmetry_line_count := r.array_count()
+	for _i in range(symmetry_line_count):
+		_skip_model_u32_header(r, 32)
+
+	# [Tag]
+	var tag_count := r.array_count()
+	doc.tags.resize(tag_count)
+	for i in range(tag_count):
+		var tag := _read_tag(r)
+		doc.tags[i] = tag
+		print("Read tag: name=%s from=%d to=%d direction=%d" % [tag.name, tag.from_frame, tag.to_frame, tag.direction])
+
 	return doc
 
 
@@ -397,10 +448,6 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 	var w := doc.canvas_size.x
 	var h := doc.canvas_size.y
 
-	var anim_name := String(options.get("animation_name", "default"))
-	var fps := float(options.get("fps", 12))
-	var frame_from := int(options.get("frame_from", 0))
-	var frame_count_opt := int(options.get("frame_count", 0))
 	var composite_visible := bool(options.get("composite_visible_layers", true))
 
 	var layer_ids := doc.get_root_regular_layer_order()
@@ -409,30 +456,45 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 
 	var max_frames := doc.get_max_frame_count_for_layers(layer_ids)
 
-	var frame_to := max_frames
-	if frame_count_opt > 0:
-		frame_to = min(max_frames, frame_from + frame_count_opt)
-
-	var frames_rgba: Array[PackedByteArray] = []
-	for fi in range(frame_from, frame_to):
-		frames_rgba.append(_compose_frame_rgba_straight(
-			w, h, layer_ids, doc.layers_by_id, doc.frame_content_by_id, fi, composite_visible
-		))
-
-	var sheet_bytes := _make_sheet_bytes(frames_rgba, w, h)
-	var sheet_w := w * frames_rgba.size()
-	var sheet_img := Image.create_from_data(sheet_w, h, false, Image.FORMAT_RGBA8, sheet_bytes)
-	var sheet_tex := ImageTexture.create_from_image(sheet_img)
+	if doc.tags.is_empty():
+		# Add a default tag covering all frames if there are no tags, so we at least get a "default" animation.
+		var default_tag := PxTypes.PxTag.new()
+		default_tag.name = "default"
+		default_tag.from_frame = 0
+		default_tag.to_frame = max_frames
+		default_tag.direction = 0
+		default_tag.loop_count = 0
+		doc.tags.append(default_tag)
 
 	var sf := SpriteFrames.new()
-	sf.add_animation(anim_name)
-	sf.set_animation_speed(anim_name, fps)
-	sf.set_animation_loop(anim_name, true)
+	sf.remove_animation("default") # Remove this one that is created by default...
+	
+	for tag in doc.tags:
+		print("Processing tag '%s' frames %d..%d" % [tag.name, tag.from_frame, tag.to_frame])
+		var frames_rgba: Array[PackedByteArray] = []
+		var durations_ms: Array[int] = []
+		for fi in range(tag.from_frame, tag.to_frame + 1):
+			frames_rgba.append(_compose_frame_rgba_straight(
+				w, h, layer_ids, doc.layers_by_id, doc.frame_content_by_id, fi, composite_visible
+			))
+			durations_ms.append(doc.get_duration_ms_for_frame(layer_ids[0], fi))
 
-	for i in range(frames_rgba.size()):
-		var atlas := AtlasTexture.new()
-		atlas.atlas = sheet_tex
-		atlas.region = Rect2(i * w, 0, w, h)
-		sf.add_frame(anim_name, atlas)
 
+		var sheet_bytes := _make_sheet_bytes(frames_rgba, w, h)
+		var sheet_w := w * frames_rgba.size()
+		var sheet_img := Image.create_from_data(sheet_w, h, false, Image.FORMAT_RGBA8, sheet_bytes)
+		var sheet_tex := ImageTexture.create_from_image(sheet_img)
+
+		sf.add_animation(tag.name)
+		sf.set_animation_speed(tag.name, 1.0)
+		sf.set_animation_loop(tag.name, tag.loop_count != 1)
+		print("loop_count: ",  tag.loop_count)
+
+		for i in range(frames_rgba.size()):
+			var atlas := AtlasTexture.new()
+			atlas.atlas = sheet_tex
+			atlas.region = Rect2(i * w, 0, w, h)
+			sf.add_frame(tag.name, atlas, durations_ms[i] / 1000.0)
+			print("duration: ", durations_ms[i])
+			
 	return sf

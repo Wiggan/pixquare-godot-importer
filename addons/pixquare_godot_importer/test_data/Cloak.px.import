@@ -1,19 +1,16 @@
 [remap]
 
-importer="fwdab.px.import.spriteframes"
-type="SpriteFrames"
+importer="fwdab.px.import.texture2d"
+type="Texture2D"
 uid="uid://dk5xft2jxm84h"
-path="res://.godot/imported/Cloak.px-bf29380dbdecf909f1d42c3191ef02a9.tres"
+path="res://.godot/imported/Cloak.px-bf29380dbdecf909f1d42c3191ef02a9.res"
 
 [deps]
 
 source_file="res://addons/pixquare_godot_importer/test_data/Cloak.px"
-dest_files=["res://.godot/imported/Cloak.px-bf29380dbdecf909f1d42c3191ef02a9.tres"]
+dest_files=["res://.godot/imported/Cloak.px-bf29380dbdecf909f1d42c3191ef02a9.res"]
 
 [params]
 
-animation_name="default"
-fps=12
-frame_from=0
-frame_count=0
+frame_index=0
 composite_visible_layers=true
