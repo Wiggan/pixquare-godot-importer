@@ -54,4 +54,9 @@ func _get_import_options(path, preset_index):
 
 
 func _import(source_file: String, save_path: String, options: Dictionary, platform_variants: Array[String], gen_files: Array[String]) -> Error:
-	return PxCore.import_spriteframes(source_file, save_path, options, platform_variants, gen_files, _get_save_extension())
+	var doc := PxCore.load_document(source_file)
+	if doc == null:
+		return FAILED
+
+	var sf := PxCore.build_spriteframes(doc, options)
+	return ResourceSaver.save(sf, save_path + "." + _get_save_extension())

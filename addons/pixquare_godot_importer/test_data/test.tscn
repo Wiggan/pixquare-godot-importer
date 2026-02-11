@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://dwqwvbe3ougp5"]
 
-[ext_resource type="SpriteFrames" uid="uid://c1hhhc2b60nie" path="res://addons/pixquare_godot_importer/test_data/Explosion.px" id="1_p7cxa"]
-[ext_resource type="Texture2D" uid="uid://l0rjss41emf3" path="res://addons/pixquare_godot_importer/test_data/Cloak.px" id="2_0uayc"]
+[ext_resource type="SpriteFrames" path="res://addons/pixquare_godot_importer/test_data/Explosion.px" id="1_p7cxa"]
+[ext_resource type="Texture2D" path="res://addons/pixquare_godot_importer/test_data/Cloak.px" id="2_0uayc"]
 
 [node name="Node2D" type="Node2D" unique_id=1996477979]
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1088513839]
 sprite_frames = ExtResource("1_p7cxa")
 autoplay = "default"
-frame_progress = 0.11594715
+frame_progress = 0.45033085
 
 [node name="Cloak" type="Sprite2D" parent="." unique_id=1622528758]
 position = Vector2(28, 0)

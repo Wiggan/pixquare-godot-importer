@@ -1,8 +1,12 @@
 @tool
 extends EditorPlugin
 
-var import_texture2d
-var import_spriteframes
+const IMPORTS = [
+	preload("uid://by2s7oyx4nlju"),
+	preload("uid://d0yx37chho6vu")
+]
+
+var imports = []
 
 func _enable_plugin() -> void:
 	# Add autoloads here.
@@ -15,14 +19,13 @@ func _disable_plugin() -> void:
 
 
 func _enter_tree() -> void:
-	import_texture2d = preload("uid://d0yx37chho6vu").new()
-	import_spriteframes = preload("uid://by2s7oyx4nlju").new()
-	add_import_plugin(import_texture2d)
-	add_import_plugin(import_spriteframes)
-
+	for i in IMPORTS:
+		var importer = i.new()
+		imports.append(importer)
+		add_import_plugin(importer)
 
 func _exit_tree() -> void:
-	remove_import_plugin(import_texture2d)
-	remove_import_plugin(import_spriteframes)
-	import_texture2d = null
-	import_spriteframes = null
+	for i in imports:
+		remove_import_plugin(i)
+	imports.clear()
+	

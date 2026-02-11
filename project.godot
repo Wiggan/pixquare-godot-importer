@@ -16,7 +16,7 @@ config/icon="res://icon.svg"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/pixquare_import_plugin/plugin.cfg")
+enabled=PackedStringArray("res://addons/pixquare_godot_importer/plugin.cfg", "res://addons/pixquare_import_plugin/plugin.cfg")
 
 [physics]
 
