@@ -1,0 +1,1 @@
+All source code and example assets included in this repository are licensed under the MIT License.
