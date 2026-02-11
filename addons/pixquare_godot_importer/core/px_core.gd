@@ -412,7 +412,6 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 	for i in range(tag_count):
 		var tag := _read_tag(r)
 		doc.tags[i] = tag
-		print("Read tag: name=%s from=%d to=%d direction=%d" % [tag.name, tag.from_frame, tag.to_frame, tag.direction])
 
 	return doc
 
@@ -470,7 +469,6 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 	sf.remove_animation("default") # Remove this one that is created by default...
 	
 	for tag in doc.tags:
-		print("Processing tag '%s' frames %d..%d" % [tag.name, tag.from_frame, tag.to_frame])
 		var frames_rgba: Array[PackedByteArray] = []
 		var durations_ms: Array[int] = []
 		for fi in range(tag.from_frame, tag.to_frame + 1):
@@ -488,13 +486,11 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 		sf.add_animation(tag.name)
 		sf.set_animation_speed(tag.name, 1.0)
 		sf.set_animation_loop(tag.name, tag.loop_count != 1)
-		print("loop_count: ",  tag.loop_count)
 
 		for i in range(frames_rgba.size()):
 			var atlas := AtlasTexture.new()
 			atlas.atlas = sheet_tex
 			atlas.region = Rect2(i * w, 0, w, h)
 			sf.add_frame(tag.name, atlas, durations_ms[i] / 1000.0)
-			print("duration: ", durations_ms[i])
 			
 	return sf
