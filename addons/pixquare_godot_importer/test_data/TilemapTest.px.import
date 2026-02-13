@@ -1,0 +1,15 @@
+[remap]
+
+importer="fwdab.px.import.tilesetatlassource"
+type="Texture2D"
+uid="uid://kramt2tfmdrj"
+path="res://.godot/imported/TilemapTest.px-ec6a3562debebf197dd7d1d1f2048412.res"
+
+[deps]
+
+source_file="res://addons/pixquare_godot_importer/test_data/TilemapTest.px"
+dest_files=["res://.godot/imported/TilemapTest.px-ec6a3562debebf197dd7d1d1f2048412.res"]
+
+[params]
+
+tileset_index=1

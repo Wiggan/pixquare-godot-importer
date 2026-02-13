@@ -30,6 +30,18 @@ class PxLayer:
 	var blend: int = BLEND_NORMAL
 	var frames: Array[PxFrame] = []
 
+class PxTile:
+	var compressed: PackedByteArray
+	var argbs: PackedByteArray
+
+class PxTileset:
+	var id: String = ""
+	var name: String = ""
+	var tile_size: Vector2i = Vector2i.ZERO
+	var tile_count: int = 0
+	var tiles: Array[PxTile] = []
+	var tiles_per_row: int = 0
+
 class PxDocument:
 	var source_path: String = ""
 	var artwork_id: String = ""
@@ -49,6 +61,9 @@ class PxDocument:
 
 	# Tags
 	var tags: Array[PxTag] = []
+
+	# Tilesets
+	var tilesets: Array[PxTileset] = []
 
 	func get_root_regular_layer_order() -> Array[String]:
 		var out: Array[String] = []

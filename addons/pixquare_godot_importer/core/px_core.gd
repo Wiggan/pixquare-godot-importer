@@ -46,6 +46,11 @@ class PxReader:
 			return ""
 		return bytes(n).get_string_from_utf8()
 
+	func string() -> String:
+		var len := u16()
+		print("Reading string of len: ", len, " at pos: ", pos())
+		return dumb_string(len)
+
 	func size_u32() -> Vector2i:
 		var w := u32()
 		var h := u32()
@@ -65,6 +70,7 @@ const LAYER_HEADER_BYTES := 32
 const FRAME_HEADER_BYTES := 32
 const FRAMECONTENT_HEADER_BYTES := 32
 const TAG_HEADER_BYTES := 16
+const TILESET_HEADER_BYTES := 32
 
 
 static func _read_entry(r: PxReader) -> PxTypes.PxEntry:
@@ -224,6 +230,41 @@ static func _read_frame_content(r: PxReader) -> Dictionary:
 		r.skip(int(size) - consumed)
 
 	return {"id": id, "compressed": compressed}
+
+static func _read_tileset(r: PxReader) -> PxTypes.PxTileset:
+	var size := r.u32()
+	r.skip(TILESET_HEADER_BYTES - 4)
+	
+	var id := r.string()
+	var name := r.string()
+	var tile_size := r.size_u32()
+	var tile_count := r.array_count()
+	print("Reading tileset id=%s name=%s tile_size=%s tile_count=%d" % [id, name, tile_size, tile_count])
+	var tiles: Array[PxTypes.PxTile] = []
+	tiles.resize(tile_count)
+	for i in range(tile_count):
+		var tile = PxTypes.PxTile.new()
+		var tile_len := r.array_count()
+		var compressed := r.bytes(tile_len)
+		tile.compressed = compressed
+		tile.argbs = _unpremultiply_rgba(PxZlib.inflate_pixquare_zlib(compressed))
+		tiles[i] = tile
+		
+	var tiles_per_row := r.u16()
+	
+	# Documentation says this one should be here, but it's not in my .px.
+	# var grid_color := r.u32()
+
+	print("tiles_per_row: ", tiles_per_row)
+
+	var tileset := PxTypes.PxTileset.new()
+	tileset.id = id
+	tileset.name = name
+	tileset.tile_size = tile_size
+	tileset.tile_count = int(tile_count)
+	tileset.tiles = tiles
+	tileset.tiles_per_row = int(tiles_per_row)
+	return tileset
 
 # -----------------------------------------------------------------------------
 # Compositing (premultiplied alpha in file; unpremultiply at end)
@@ -389,30 +430,44 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 
 	# [ARGBColor] palette
 	var palette_count := r.array_count()
+	print("Found %d palette colors" % palette_count)
 	doc.palette = r.bytes(palette_count * 4)
 
 	# [ReferenceLayer] (skip, but keep room for later)
 	var ref_layer_count := r.array_count()
+	print("Found %d reference layers" % ref_layer_count)
 	for _i in range(ref_layer_count):
 		_skip_model_u32_header(r, 32)
 	
 	# [[Byte]] (PNG data for reference layers, skip)
 	var ref_layer_png_count := r.array_count()
+	print("Found %d reference layer PNGs" % ref_layer_png_count)
 	for _i in range(ref_layer_png_count):
 		_skip_model_u32_header(r, 32)
 
 	# [SymmetryLine] (skip, but keep room for later)
 	var symmetry_line_count := r.array_count()
+	print("Found %d symmetry lines" % symmetry_line_count)
 	for _i in range(symmetry_line_count):
 		_skip_model_u32_header(r, 32)
 
 	# [Tag]
 	var tag_count := r.array_count()
+	print("Found %d tags" % tag_count)
 	doc.tags.resize(tag_count)
 	for i in range(tag_count):
 		var tag := _read_tag(r)
 		doc.tags[i] = tag
 
+	# [Tileset]
+	
+	print("tileset_count at pos ", r.pos())
+	var tileset_count := r.array_count()
+	doc.tilesets.resize(tileset_count)
+	print("Found %d tilesets" % tileset_count)
+	for i in range(tileset_count):
+		var tileset := _read_tileset(r)
+		doc.tilesets[i] = tileset
 	return doc
 
 
@@ -494,3 +549,33 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 			sf.add_frame(tag.name, atlas, durations_ms[i] / 1000.0)
 			
 	return sf
+
+static func build_tileset(doc: PxTypes.PxDocument, options: Dictionary) -> Texture2D:
+	var tileset_index = options.get("tileset_index", 0)
+	# Get index from options? For now just take the first tileset if it exists.
+	if doc.tilesets.size() <= tileset_index:
+		push_error("Invalid tileset index. There are ", doc.tilesets.size(), " tilesets available")
+
+
+	var tileset := doc.tilesets[tileset_index]
+
+	# Prepare a packedBufferArray for the whole tileset atlas
+	var expected_len := tileset.tile_size.x * tileset.tile_size.y * 4 * tileset.tiles_per_row * ((tileset.tile_count + tileset.tiles_per_row - 1) / tileset.tiles_per_row)
+	var atlas_argb := PackedByteArray()
+	atlas_argb.resize(expected_len)
+	for i in range(tileset.tile_count):
+		var tile := tileset.tiles[i]
+		var x := (i % tileset.tiles_per_row) * tileset.tile_size.x
+		var y := (i / tileset.tiles_per_row) * tileset.tile_size.y
+
+		for ty in range(tileset.tile_size.y):
+			var src_row_start := ty * tileset.tile_size.x * 4
+			var dst_row_start := ((y + ty) * tileset.tile_size.x * tileset.tiles_per_row + x) * 4
+
+			for b in range(tileset.tile_size.x * 4):
+				atlas_argb[dst_row_start + b] = tile.argbs[src_row_start + b]
+
+	var image = Image.create_from_data(tileset.tile_size.x * tileset.tiles_per_row, tileset.tile_size.y * ((tileset.tile_count + tileset.tiles_per_row - 1) / tileset.tiles_per_row), false, Image.FORMAT_RGBA8, atlas_argb)
+	var texture = ImageTexture.create_from_image(image)
+	
+	return texture
