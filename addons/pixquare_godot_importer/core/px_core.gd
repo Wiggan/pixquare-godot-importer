@@ -48,7 +48,6 @@ class PxReader:
 
 	func string() -> String:
 		var len := u16()
-		print("Reading string of len: ", len, " at pos: ", pos())
 		return dumb_string(len)
 
 	func size_u32() -> Vector2i:
@@ -235,11 +234,12 @@ static func _read_tileset(r: PxReader) -> PxTypes.PxTileset:
 	var size := r.u32()
 	r.skip(TILESET_HEADER_BYTES - 4)
 	
+	var content_start := r.pos()
+	
 	var id := r.string()
 	var name := r.string()
 	var tile_size := r.size_u32()
 	var tile_count := r.array_count()
-	print("Reading tileset id=%s name=%s tile_size=%s tile_count=%d" % [id, name, tile_size, tile_count])
 	var tiles: Array[PxTypes.PxTile] = []
 	tiles.resize(tile_count)
 	for i in range(tile_count):
@@ -252,10 +252,10 @@ static func _read_tileset(r: PxReader) -> PxTypes.PxTileset:
 		
 	var tiles_per_row := r.u16()
 	
-	# Documentation says this one should be here, but it's not in my .px.
-	# var grid_color := r.u32()
-
-	print("tiles_per_row: ", tiles_per_row)
+	# Robust: skip any remaining bytes in the model (size excludes header)
+	var consumed := r.pos() - content_start
+	if consumed < int(size):
+		r.skip(int(size) - consumed)
 
 	var tileset := PxTypes.PxTileset.new()
 	tileset.id = id
@@ -264,6 +264,7 @@ static func _read_tileset(r: PxReader) -> PxTypes.PxTileset:
 	tileset.tile_count = int(tile_count)
 	tileset.tiles = tiles
 	tileset.tiles_per_row = int(tiles_per_row)
+	
 	return tileset
 
 # -----------------------------------------------------------------------------
@@ -430,30 +431,25 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 
 	# [ARGBColor] palette
 	var palette_count := r.array_count()
-	print("Found %d palette colors" % palette_count)
 	doc.palette = r.bytes(palette_count * 4)
 
 	# [ReferenceLayer] (skip, but keep room for later)
 	var ref_layer_count := r.array_count()
-	print("Found %d reference layers" % ref_layer_count)
 	for _i in range(ref_layer_count):
 		_skip_model_u32_header(r, 32)
 	
 	# [[Byte]] (PNG data for reference layers, skip)
 	var ref_layer_png_count := r.array_count()
-	print("Found %d reference layer PNGs" % ref_layer_png_count)
 	for _i in range(ref_layer_png_count):
 		_skip_model_u32_header(r, 32)
 
 	# [SymmetryLine] (skip, but keep room for later)
 	var symmetry_line_count := r.array_count()
-	print("Found %d symmetry lines" % symmetry_line_count)
 	for _i in range(symmetry_line_count):
 		_skip_model_u32_header(r, 32)
 
 	# [Tag]
 	var tag_count := r.array_count()
-	print("Found %d tags" % tag_count)
 	doc.tags.resize(tag_count)
 	for i in range(tag_count):
 		var tag := _read_tag(r)
@@ -461,10 +457,8 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 
 	# [Tileset]
 	
-	print("tileset_count at pos ", r.pos())
 	var tileset_count := r.array_count()
 	doc.tilesets.resize(tileset_count)
-	print("Found %d tilesets" % tileset_count)
 	for i in range(tileset_count):
 		var tileset := _read_tileset(r)
 		doc.tilesets[i] = tileset
