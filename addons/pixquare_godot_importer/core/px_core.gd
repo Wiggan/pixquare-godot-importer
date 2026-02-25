@@ -71,6 +71,9 @@ const FRAMECONTENT_HEADER_BYTES := 32
 const TAG_HEADER_BYTES := 16
 const TILESET_HEADER_BYTES := 32
 
+const DIRECTION_FORWARD := 0
+const DIRECTION_BACKWARD := 1
+const DIRECTION_PINGPONG := 2
 
 static func _read_entry(r: PxReader) -> PxTypes.PxEntry:
 	# Header (16): UInt32 size, UInt8 entry type, rest unused
@@ -161,7 +164,7 @@ static func _read_tag(r: PxReader) -> PxTypes.PxTag:
 	var tag := PxTypes.PxTag.new()
 	tag.name = name
 	tag.from_frame = int(from_frame)
-	tag.to_frame = int(to_frame)
+	tag.to_frame = int(to_frame) + 1
 	tag.direction = int(direction)
 	tag.loop_count = int(loop_count)
 	return tag
@@ -520,7 +523,7 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 	for tag in doc.tags:
 		var frames_rgba: Array[PackedByteArray] = []
 		var durations_ms: Array[int] = []
-		for fi in range(tag.from_frame, tag.to_frame + 1):
+		for fi in range(tag.from_frame, tag.to_frame):
 			frames_rgba.append(_compose_frame_rgba_straight(
 				w, h, layer_ids, doc.layers_by_id, doc.frame_content_by_id, fi, composite_visible
 			))
@@ -536,7 +539,18 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 		sf.set_animation_speed(tag.name, 1.0)
 		sf.set_animation_loop(tag.name, tag.loop_count != 1)
 
-		for i in range(frames_rgba.size()):
+		var indices = range(frames_rgba.size())
+		match tag.direction:
+			DIRECTION_FORWARD:
+				pass # frames are in correct order
+			DIRECTION_BACKWARD:
+				indices.reverse()
+			DIRECTION_PINGPONG:
+				var rev := indices.duplicate()
+				rev.reverse()
+				indices += rev.slice(1, rev.size() - 1) # avoid repeating first and last frames
+
+		for i in indices:
 			var atlas := AtlasTexture.new()
 			atlas.atlas = sheet_tex
 			atlas.region = Rect2(i * w, 0, w, h)
