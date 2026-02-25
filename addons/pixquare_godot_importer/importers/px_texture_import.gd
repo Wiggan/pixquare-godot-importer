@@ -33,5 +33,6 @@ func _import(source_file: String, save_path: String, options: Dictionary, platfo
 	if doc == null:
 		return FAILED
 
+
 	var tex := PxCore.build_texture_2d(doc, options)
 	return ResourceSaver.save(tex, save_path + "." + _get_save_extension())

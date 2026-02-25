@@ -96,9 +96,13 @@ static func _read_entry(r: PxReader) -> PxTypes.PxEntry:
 	return e
 
 static func _skip_model_u32_header(r: PxReader, header_bytes: int) -> void:
-	var size := r.u32()
-	r.skip(header_bytes - 4)
-	r.skip(size)
+	var size := int(r.u32()) # size = model content bytes (excludes header)
+	var content_start := r.pos() # after reading size
+	r.skip(header_bytes - 4) # rest of header
+	var consumed := int(r.pos() - content_start)
+	var remaining := size - consumed
+	if remaining > 0:
+		r.skip(remaining)
 
 static func _skip_custom_data(r: PxReader) -> void:
 	# CustomData header (16): UInt64 size, UInt8 type, rest unused
@@ -459,12 +463,13 @@ static func load_document(source_file: String) -> PxTypes.PxDocument:
 		doc.tags[i] = tag
 
 	# [Tileset]
-	
 	var tileset_count := r.array_count()
 	doc.tilesets.resize(tileset_count)
 	for i in range(tileset_count):
 		var tileset := _read_tileset(r)
 		doc.tilesets[i] = tileset
+	
+	file.close()
 	return doc
 
 
