@@ -1,6 +1,6 @@
 @tool
 extends RefCounted
-class_name ArtSync
+class_name PxSync
 
 const EXT := "px"
 
@@ -132,11 +132,12 @@ static func _copy_file_atomic(src_path: String, dst_path: String) -> bool:
 		DirAccess.remove_absolute(tmp_path)
 		return false
 
-	# efter copy:
+	# After copy, check hash to verify integrity:
 	var hs := _hash_file(src_path)
 	var hd := _hash_file(dst_path)
 	if hs != hd:
 		push_error("PX sync hash mismatch: %s" % src_path)
+		return false
 
 	return true
 

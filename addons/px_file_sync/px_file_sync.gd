@@ -1,11 +1,11 @@
 @tool
 extends EditorPlugin
 
-const SETTINGS_KEY := "art_sync/source_path_abs"
+const SETTINGS_KEY := "px_sync/source_path_abs"
 const DST_RES := "res://."
-const SHORTCUT_NAME := "art_sync/sync_now"
+const SHORTCUT_NAME := "px_sync/sync_now"
 
-const SUBMENU_NAME := "Art Sync"
+const SUBMENU_NAME := "PX Sync"
 
 var _submenu: PopupMenu
 var _file_dialog: EditorFileDialog
@@ -35,7 +35,7 @@ func _enter_tree() -> void:
 	_file_dialog = EditorFileDialog.new()
 	_file_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_DIR
 	_file_dialog.access = EditorFileDialog.ACCESS_FILESYSTEM
-	_file_dialog.title = "Select Art Source Folder"
+	_file_dialog.title = "Select PX Source Top Folder"
 	_file_dialog.dir_selected.connect(_on_dir_selected)
 	EditorInterface.get_base_control().add_child(_file_dialog)
 
@@ -77,13 +77,13 @@ func _set_source() -> void:
 
 func _on_dir_selected(dir_abs: String) -> void:
 	EditorInterface.get_editor_settings().set_setting(SETTINGS_KEY, dir_abs)
-	print("Art Sync", "Source set to:\n%s" % dir_abs)
+	print("PX Sync", "Source set to:\n%s" % dir_abs)
 
 func _sync() -> void:
 	var src_abs := _get_source_path()
-	var stats := ArtSync.sync_tree_px(src_abs, "res://assets_src")
+	var stats := PxSync.sync_tree_px(src_abs, DST_RES)
 	print(
-		"Found: %d\nCopied: %d\nUnchanged: %d\nErrors: %d" % [
+		"PX Sync Found: %d, Copied: %d, Unchanged: %d, Errors: %d" % [
 			stats["total_px_found"], stats["copied"], stats["unchanged"], stats["errors"]
 		]
 	)
