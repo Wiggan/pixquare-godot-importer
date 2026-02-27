@@ -77,34 +77,22 @@ func _set_source() -> void:
 
 func _on_dir_selected(dir_abs: String) -> void:
 	EditorInterface.get_editor_settings().set_setting(SETTINGS_KEY, dir_abs)
-	_popup("Art Sync", "Source set to:\n%s" % dir_abs)
+	print("Art Sync", "Source set to:\n%s" % dir_abs)
 
 func _sync() -> void:
 	var src_abs := _get_source_path()
 	var stats := ArtSync.sync_tree_px(src_abs, "res://assets_src")
-	_popup("Art Sync",
+	print(
 		"Found: %d\nCopied: %d\nUnchanged: %d\nErrors: %d" % [
 			stats["total_px_found"], stats["copied"], stats["unchanged"], stats["errors"]
 		]
 	)
-	
-	Engine.get_main_loop().create_timer(5).timeout.connect(func():
-		var fs = EditorInterface.get_resource_filesystem()
-		if not fs.is_scanning():
-			fs.scan()
-		)
+	var fs = EditorInterface.get_resource_filesystem()
+	if not fs.is_scanning():
+		fs.scan()
 
 func _get_source_path() -> String:
 	var es := EditorInterface.get_editor_settings()
 	if es.has_setting(SETTINGS_KEY):
 		return str(es.get_setting(SETTINGS_KEY))
 	return ""
-
-func _popup(title: String, text: String) -> void:
-	var d := AcceptDialog.new()
-	d.title = title
-	d.dialog_text = text
-	get_editor_interface().get_base_control().add_child(d)
-	d.popup_centered()
-	d.confirmed.connect(d.queue_free)
-	d.canceled.connect(d.queue_free)

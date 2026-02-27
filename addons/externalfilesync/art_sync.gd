@@ -86,13 +86,11 @@ static func _same_file_quick(a: String, b: String) -> bool:
 		return false
 	if sa != sb:
 		return false
-
-	var ma := FileAccess.get_modified_time(a)
-	var mb := FileAccess.get_modified_time(b)
-	if ma != 0 and mb != 0 and ma != mb:
-		return false
-
-	return true
+	
+	var hs := _hash_file(a)
+	var hd := _hash_file(b)
+	
+	return hs == hd
 
 static func _is_file_stable(path: String, wait_ms: int) -> bool:
 	var s1 := _file_size(path)
@@ -139,7 +137,6 @@ static func _copy_file_atomic(src_path: String, dst_path: String) -> bool:
 	var hd := _hash_file(dst_path)
 	if hs != hd:
 		push_error("PX sync hash mismatch: %s" % src_path)
-
 
 	return true
 
