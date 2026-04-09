@@ -3,6 +3,7 @@ extends EditorPlugin
 
 const IMPORTS = [
 	preload("uid://by2s7oyx4nlju"),
+	preload("uid://bhec7hv1qns5d"),
 	preload("uid://d0yx37chho6vu"),
 	preload("uid://usxbx8dldokt"),
 ]

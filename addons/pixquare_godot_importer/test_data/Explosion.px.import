@@ -1,15 +1,17 @@
 [remap]
 
-importer="fwdab.px.import.spriteframes"
-type="SpriteFrames"
+importer="fwdab.px.import.spritesheet"
+type="Texture2D"
 uid="uid://0377j7xr0ew5"
-path="res://.godot/imported/Explosion.px-88f17ba01847cab70cc2505cc8880a7d.tres"
+path="res://.godot/imported/Explosion.px-88f17ba01847cab70cc2505cc8880a7d.res"
 
 [deps]
 
 source_file="res://addons/pixquare_godot_importer/test_data/Explosion.px"
-dest_files=["res://.godot/imported/Explosion.px-88f17ba01847cab70cc2505cc8880a7d.tres"]
+dest_files=["res://.godot/imported/Explosion.px-88f17ba01847cab70cc2505cc8880a7d.res"]
 
 [params]
 
+animation_tag=0
+sheet_columns=4
 composite_visible_layers=true

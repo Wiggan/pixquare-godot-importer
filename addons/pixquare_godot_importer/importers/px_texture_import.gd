@@ -22,6 +22,9 @@ func _get_preset_count():
 func _get_preset_name(preset_index):
 	return "Default"
 
+func _get_priority():
+	return 3.0
+
 func _get_import_options(path, preset_index):
 	return [
 		{"name": "frame_index", "default_value": 0},

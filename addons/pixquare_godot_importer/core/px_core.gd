@@ -370,24 +370,109 @@ static func _compose_frame_rgba_straight(
 	# Convert premultiplied -> straight alpha for Godot Image
 	return _unpremultiply_rgba(out_premul)
 
+static func _get_regular_layer_ids(doc: PxTypes.PxDocument) -> Array[String]:
+	var layer_ids := doc.get_root_regular_layer_order()
+	if not layer_ids.is_empty():
+		return layer_ids
 
-static func _make_sheet_bytes(frames: Array[PackedByteArray], w: int, h: int) -> PackedByteArray:
+	var fallback_ids: Array[String] = []
+	for key in doc.layers_by_id.keys():
+		fallback_ids.append(String(key))
+	return fallback_ids
+
+static func _get_timeline_frame_indices(max_frames: int) -> Array[int]:
+	var indices: Array[int] = []
+	for frame_index in range(max_frames):
+		indices.append(frame_index)
+	return indices
+
+static func _get_tag_frame_indices(tag: PxTypes.PxTag) -> Array[int]:
+	var indices: Array[int] = []
+	for frame_index in range(tag.from_frame, tag.to_frame):
+		indices.append(frame_index)
+
+	match tag.direction:
+		DIRECTION_BACKWARD:
+			indices.reverse()
+		DIRECTION_PINGPONG:
+			var pingpong := indices.duplicate()
+			for i in range(indices.size() - 2, 0, -1):
+				pingpong.append(indices[i])
+			indices = pingpong
+
+	return indices
+
+static func _get_effective_tags(doc: PxTypes.PxDocument, max_frames: int) -> Array[PxTypes.PxTag]:
+	var tags: Array[PxTypes.PxTag] = []
+	if doc.tags.is_empty():
+		var default_tag := PxTypes.PxTag.new()
+		default_tag.name = "default"
+		default_tag.from_frame = 0
+		default_tag.to_frame = max_frames
+		default_tag.direction = DIRECTION_FORWARD
+		default_tag.loop_count = 0
+		tags.append(default_tag)
+		return tags
+
+	for tag in doc.tags:
+		tags.append(tag)
+	return tags
+
+static func _get_animation_sheet_frame_indices(
+	doc: PxTypes.PxDocument,
+	layer_ids: Array[String],
+	options: Dictionary
+) -> Array[int]:
+	var max_frames := doc.get_max_frame_count_for_layers(layer_ids)
+	if max_frames <= 0:
+		return []
+
+	var animation_tag := int(options.get("animation_tag", 0))
+	if animation_tag > 0 and animation_tag <= doc.tags.size():
+		return _get_tag_frame_indices(doc.tags[animation_tag - 1])
+
+	return _get_timeline_frame_indices(max_frames)
+
+static func _get_frame_duration_ms(
+	layer_ids: Array[String],
+	layers_by_id: Dictionary,
+	frame_index: int
+) -> int:
+	for layer_id in layer_ids:
+		var layer: PxTypes.PxLayer = layers_by_id.get(layer_id, null)
+		if layer != null and frame_index >= 0 and frame_index < layer.frames.size():
+			return layer.frames[frame_index].duration_ms
+	return 0
+
+static func _get_default_sheet_columns(frame_count: int) -> int:
+	if frame_count <= 1:
+		return 1
+	return maxi(1, ceili(sqrt(float(frame_count))))
+
+static func _make_sheet_bytes(frames: Array[PackedByteArray], w: int, h: int, columns: int = 0) -> PackedByteArray:
 	var frame_count := frames.size()
-	var sheet_w := w * frame_count
-	var sheet_h := h
+	if frame_count == 0:
+		return PackedByteArray()
+
+	if columns <= 0:
+		columns = frame_count
+	columns = mini(columns, frame_count)
+
+	var rows := int(ceil(float(frame_count) / float(columns)))
+	var sheet_w := w * columns
+	var sheet_h := h * rows
 	var sheet := PackedByteArray()
 	sheet.resize(sheet_w * sheet_h * 4)
 
-	# Copy row-by-row for each frame into the big sheet.
 	for fi in range(frame_count):
 		var src := frames[fi]
-		var x_off := fi * w
+		var x_off := (fi % columns) * w
+		var y_off := int(fi / columns) * h
 
 		for y in range(h):
 			var src_row_start := (y * w) * 4
-			var dst_row_start := ((y * sheet_w) + x_off) * 4
+			var dst_row_start := ((((y_off + y) * sheet_w) + x_off) * 4)
 
-			# Copy w*4 bytes
 			for b in range(w * 4):
 				sheet[dst_row_start + b] = src[src_row_start + b]
 
@@ -483,9 +568,7 @@ static func build_texture_2d(doc: PxTypes.PxDocument, options: Dictionary) -> Te
 	var frame_index := int(options.get("frame_index", 0))
 	var composite_visible := bool(options.get("composite_visible_layers", true))
 
-	var layer_ids := doc.get_root_regular_layer_order()
-	if layer_ids.is_empty():
-		layer_ids = doc.layers_by_id.keys()
+	var layer_ids := _get_regular_layer_ids(doc)
 
 	var rgba := _compose_frame_rgba_straight(
 		w, h,
@@ -506,34 +589,24 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 
 	var composite_visible := bool(options.get("composite_visible_layers", true))
 
-	var layer_ids := doc.get_root_regular_layer_order()
-	if layer_ids.is_empty():
-		layer_ids = doc.layers_by_id.keys()
+	var layer_ids := _get_regular_layer_ids(doc)
 
 	var max_frames := doc.get_max_frame_count_for_layers(layer_ids)
-
-	if doc.tags.is_empty():
-		# Add a default tag covering all frames if there are no tags, so we at least get a "default" animation.
-		var default_tag := PxTypes.PxTag.new()
-		default_tag.name = "default"
-		default_tag.from_frame = 0
-		default_tag.to_frame = max_frames
-		default_tag.direction = 0
-		default_tag.loop_count = 0
-		doc.tags.append(default_tag)
 
 	var sf := SpriteFrames.new()
 	sf.remove_animation("default") # Remove this one that is created by default...
 	
-	for tag in doc.tags:
+	for tag in _get_effective_tags(doc, max_frames):
 		var frames_rgba: Array[PackedByteArray] = []
 		var durations_ms: Array[int] = []
-		for fi in range(tag.from_frame, tag.to_frame):
+		for fi in _get_tag_frame_indices(tag):
 			frames_rgba.append(_compose_frame_rgba_straight(
 				w, h, layer_ids, doc.layers_by_id, doc.frame_content_by_id, fi, composite_visible
 			))
-			durations_ms.append(doc.get_duration_ms_for_frame(layer_ids[0], fi))
+			durations_ms.append(_get_frame_duration_ms(layer_ids, doc.layers_by_id, fi))
 
+		if frames_rgba.is_empty():
+			continue
 
 		var sheet_bytes := _make_sheet_bytes(frames_rgba, w, h)
 		var sheet_w := w * frames_rgba.size()
@@ -543,25 +616,43 @@ static func build_spriteframes(doc: PxTypes.PxDocument, options: Dictionary) -> 
 		sf.add_animation(tag.name)
 		sf.set_animation_speed(tag.name, 1.0)
 		sf.set_animation_loop(tag.name, tag.loop_count != 1)
-
-		var indices = range(frames_rgba.size())
-		match tag.direction:
-			DIRECTION_FORWARD:
-				pass # frames are in correct order
-			DIRECTION_BACKWARD:
-				indices.reverse()
-			DIRECTION_PINGPONG:
-				var rev := indices.duplicate()
-				rev.reverse()
-				indices += rev.slice(1, rev.size() - 1) # avoid repeating first and last frames
-
-		for i in indices:
+		for i in range(frames_rgba.size()):
 			var atlas := AtlasTexture.new()
 			atlas.atlas = sheet_tex
 			atlas.region = Rect2(i * w, 0, w, h)
 			sf.add_frame(tag.name, atlas, durations_ms[i] / 1000.0)
 			
 	return sf
+
+static func build_animation_sheet_texture(doc: PxTypes.PxDocument, options: Dictionary) -> Texture2D:
+	var w := doc.canvas_size.x
+	var h := doc.canvas_size.y
+	var composite_visible := bool(options.get("composite_visible_layers", true))
+	var sheet_columns := int(options.get("sheet_columns", 0))
+	var layer_ids := _get_regular_layer_ids(doc)
+	var frame_indices := _get_animation_sheet_frame_indices(doc, layer_ids, options)
+	var frames_rgba: Array[PackedByteArray] = []
+
+	for frame_index in frame_indices:
+		frames_rgba.append(_compose_frame_rgba_straight(
+			w, h, layer_ids, doc.layers_by_id, doc.frame_content_by_id, frame_index, composite_visible
+		))
+
+	if frames_rgba.is_empty():
+		var empty_rgba := PackedByteArray()
+		empty_rgba.resize(w * h * 4)
+		var empty_image := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, empty_rgba)
+		return ImageTexture.create_from_image(empty_image)
+
+	var columns := sheet_columns
+	if columns <= 0:
+		columns = _get_default_sheet_columns(frames_rgba.size())
+	columns = mini(columns, frames_rgba.size())
+
+	var rows := int(ceil(float(frames_rgba.size()) / float(columns)))
+	var sheet_bytes := _make_sheet_bytes(frames_rgba, w, h, columns)
+	var sheet_image := Image.create_from_data(w * columns, h * rows, false, Image.FORMAT_RGBA8, sheet_bytes)
+	return ImageTexture.create_from_image(sheet_image)
 
 static func build_tileset(doc: PxTypes.PxDocument, options: Dictionary) -> Texture2D:
 	var tileset_index = options.get("tileset_index", 0)
